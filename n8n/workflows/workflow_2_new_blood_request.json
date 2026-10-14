@@ -1,0 +1,85 @@
+{
+  "name": "LifeLink – Workflow 2: New Blood Request Notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-blood-request",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $headers['x-lifelink-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET || 'lifelink-secret-key-jaffna' }}"
+            }
+          ]
+        }
+      },
+      "name": "Verify Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<!DOCTYPE html><html><body style='font-family:sans-serif;color:#151515;'><div style='max-width:600px;margin:auto;padding:24px;border:1px solid #ddd;border-radius:8px;'><h2 style='color:#DC0A20;'>LifeLink Blood Request Acknowledgment</h2><p>Dear {{ $json.body.recipientName }},</p><p>Your urgent blood request has been received:</p><ul><li><strong>Blood Group:</strong> {{ $json.body.payload.bloodGroup }}</li><li><strong>Units:</strong> {{ $json.body.payload.unitsRequired }}</li><li><strong>Hospital:</strong> {{ $json.body.payload.hospital }}</li><li><strong>District:</strong> {{ $json.body.payload.district }}</li><li><strong>Status:</strong> Pending Medical Verification</li></ul><p>Our medical coordination officers are reviewing hospital verification records. Once confirmed active, eligible donors will be alerted.</p></div></body></html>"
+      },
+      "name": "Send Requester Acknowledgment",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [700, 240]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "admin@lifelink.lk",
+        "subject": "=ACTION REQUIRED: New Urgent Blood Request - {{ $json.body.payload.hospital }}",
+        "html": "=<h2>Urgent Blood Request Submitted</h2><p>Request Reference: {{ $json.body.payload.requestId }}</p><p>Hospital: {{ $json.body.payload.hospital }} ({{ $json.body.payload.district }})</p><p>Urgency: {{ $json.body.payload.urgency }}</p><p>Please review and verify in the LifeLink Admin Console.</p>"
+      },
+      "name": "Notify Admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [700, 380]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Verify Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Secret": {
+      "main": [
+        [
+          {
+            "node": "Send Requester Acknowledgment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

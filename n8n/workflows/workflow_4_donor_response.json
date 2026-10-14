@@ -1,0 +1,31 @@
+{
+  "name": "LifeLink – Workflow 4: Donor Response",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-donor-response",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<h2>LifeLink Update: Donor Response</h2><p>Dear {{ $json.body.recipientName }},</p><p>Status: <strong>{{ $json.body.payload.status }}</strong></p><p>{{ $json.body.payload.responseNote || '' }}</p><p>Check your dashboard for details or to propose an appointment.</p>"
+      },
+      "name": "Notify Requester",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Notify Requester", "type": "main", "index": 0 }]] }
+  }
+}

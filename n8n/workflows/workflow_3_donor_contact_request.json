@@ -1,0 +1,48 @@
+{
+  "name": "LifeLink – Workflow 3: Donor Contact Request",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-donor-contact",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $headers['x-lifelink-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET || 'lifelink-secret-key-jaffna' }}"
+            }
+          ]
+        }
+      },
+      "name": "Verify Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<!DOCTYPE html><html><body style='font-family:sans-serif;'><div style='max-width:600px;margin:auto;padding:24px;border:1px solid #ddd;border-radius:8px;'><h2 style='color:#DC0A20;'>LifeLink: Urgent Blood Donor Inquiry</h2><p>Dear {{ $json.body.recipientName }},</p><p>A patient or requester has sent you a direct donation inquiry:</p><blockquote style='background:#f9f9f9;padding:12px;border-left:4px solid #DC0A20;'>{{ $json.body.payload.message }}</blockquote><p>Please log in to your <strong>LifeLink Donor Dashboard</strong> to review this request and choose to Accept or Decline at your convenience.</p></div></body></html>"
+      },
+      "name": "Email Donor",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Verify Secret", "type": "main", "index": 0 }]] },
+    "Verify Secret": { "main": [[{ "node": "Email Donor", "type": "main", "index": 0 }]] }
+  }
+}

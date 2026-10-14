@@ -1,0 +1,36 @@
+{
+  "name": "LifeLink – Workflow 7: Appointment Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Hourly Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/appointments/pending-reminders",
+        "options": {}
+      },
+      "name": "Fetch 24h Approaching Appointments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Hourly Schedule Trigger": {
+      "main": [[{ "node": "Fetch 24h Approaching Appointments", "type": "main", "index": 0 }]]
+    }
+  }
+}

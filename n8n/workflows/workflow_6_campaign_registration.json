@@ -1,0 +1,31 @@
+{
+  "name": "LifeLink – Workflow 6: Campaign Registration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-campaign-registration",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<h2>Campaign Registration Confirmed</h2><p>Campaign: <strong>{{ $json.body.payload.campaignTitle }}</strong></p><p>Location: {{ $json.body.payload.location }}</p><p>Date: {{ $json.body.payload.startDate }}</p>"
+      },
+      "name": "Confirm Campaign Registration",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Confirm Campaign Registration", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "LifeLink – Workflow 5: Appointment Updates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-appointment-update",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<h2>LifeLink Blood Donation Appointment</h2><p>Hospital: <strong>{{ $json.body.payload.hospitalName }}</strong></p><p>Scheduled Date & Time: {{ $json.body.payload.scheduledAt }}</p><p>Status: {{ $json.body.payload.status || 'REQUESTED' }}</p>"
+      },
+      "name": "Send Appointment Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Send Appointment Notification", "type": "main", "index": 0 }]] }
+  }
+}

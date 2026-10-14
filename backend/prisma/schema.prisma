@@ -1,0 +1,375 @@
+// LifeLink – Smart Blood Donation Management System
+// MySQL Prisma Schema for lifelink_db
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  DONOR
+  REQUESTER
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum BloodRequestStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  FULFILLED
+  REJECTED
+  CANCELLED
+}
+
+enum ContactRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  ACCEPTED
+  DECLINED
+  RESCHEDULE_REQUESTED
+  CANCELLED
+  COMPLETED
+}
+
+enum OutboxStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum UrgencyLevel {
+  CRITICAL
+  URGENT
+  STANDARD
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String
+  fullName        String
+  phone           String
+  role            Role
+  status          AccountStatus    @default(ACTIVE)
+  isVerified      Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  donorProfile    DonorProfile?
+  requesterProfile RequesterProfile?
+  sessions        Session[]
+  passwordResets  PasswordResetToken[]
+  auditLogs       AuditLog[]       @relation("ActorAuditLogs")
+  notifications   Notification[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model DonorProfile {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodGroup         String
+  dob                DateTime
+  province           String
+  district           String
+  city               String
+  lastDonationDate   DateTime?
+  isAvailable        Boolean   @default(true)
+  contactPreferences String    @default("CALL_AND_SMS")
+  consentGiven       Boolean   @default(true)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  contactRequests    DonorContactRequest[]
+  appointments       DonationAppointment[]
+  donationHistories  DonationHistory[]
+
+  @@index([bloodGroup, district, isAvailable])
+}
+
+model RequesterProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  province         String
+  district         String
+  city             String
+  organizationName String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  bloodRequests    BloodRequest[]
+  contactRequests  DonorContactRequest[]
+  appointments     DonationAppointment[]
+}
+
+model Province {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  districts District[]
+}
+
+model District {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  provinceId String
+  province   Province @relation(fields: [provinceId], references: [id])
+  lat        Float
+  lng        Float
+  cities     City[]
+}
+
+model City {
+  id         String   @id @default(uuid())
+  name       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+
+  @@unique([name, districtId])
+}
+
+model Hospital {
+  id           String   @id @default(uuid())
+  name         String
+  district     String
+  province     String
+  type         String
+  phone        String
+  hasBloodBank Boolean  @default(true)
+  lat          Float
+  lng          Float
+  createdAt    DateTime @default(now())
+}
+
+model BloodRequest {
+  id                 String             @id @default(uuid())
+  patientReference   String
+  requesterProfileId String
+  requesterProfile   RequesterProfile   @relation(fields: [requesterProfileId], references: [id])
+  contactPhone       String
+  bloodGroup         String
+  unitsRequired      Int
+  hospital           String
+  province           String
+  district           String
+  city               String
+  requiredDate       DateTime
+  urgency            UrgencyLevel       @default(STANDARD)
+  additionalNotes    String?            @db.Text
+  status             BloodRequestStatus @default(PENDING_VERIFICATION)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  contactRequests    DonorContactRequest[]
+
+  @@index([status, bloodGroup, district])
+}
+
+model DonorContactRequest {
+  id                 String               @id @default(uuid())
+  requesterProfileId String
+  requesterProfile   RequesterProfile     @relation(fields: [requesterProfileId], references: [id])
+  donorProfileId     String
+  donorProfile       DonorProfile         @relation(fields: [donorProfileId], references: [id])
+  bloodRequestId     String?
+  bloodRequest       BloodRequest?        @relation(fields: [bloodRequestId], references: [id])
+  message            String               @db.Text
+  status             ContactRequestStatus @default(PENDING)
+  responseNote       String?              @db.Text
+  respondedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([donorProfileId, status])
+  @@index([requesterProfileId])
+}
+
+model DonationAppointment {
+  id                 String            @id @default(uuid())
+  requesterProfileId String
+  requesterProfile   RequesterProfile  @relation(fields: [requesterProfileId], references: [id])
+  donorProfileId     String
+  donorProfile       DonorProfile      @relation(fields: [donorProfileId], references: [id])
+  hospitalName       String
+  scheduledAt        DateTime
+  notes              String?           @db.Text
+  status             AppointmentStatus @default(REQUESTED)
+  rescheduleNotes    String?           @db.Text
+  completedAt        DateTime?
+  completedNotes     String?           @db.Text
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([donorProfileId, scheduledAt])
+  @@index([status])
+}
+
+model DonationHistory {
+  id                 String       @id @default(uuid())
+  donorProfileId     String
+  donorProfile       DonorProfile @relation(fields: [donorProfileId], references: [id])
+  donationDate       DateTime
+  hospitalName       String
+  unitsDonated       Int          @default(1)
+  verificationStatus String       @default("VERIFIED")
+  verifiedByAdminId  String?
+  certificateNumber  String?
+  createdAt          DateTime     @default(now())
+
+  @@index([donorProfileId])
+}
+
+model Campaign {
+  id             String                 @id @default(uuid())
+  title          String
+  description    String                 @db.Text
+  location       String
+  district       String
+  province       String
+  startDate      DateTime
+  endDate        DateTime
+  targetUnits    Int                    @default(100)
+  collectedUnits Int                    @default(0)
+  bannerUrl      String
+  organizer      String
+  status         String                 @default("UPCOMING")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  registrations  CampaignRegistration[]
+}
+
+model CampaignRegistration {
+  id           String   @id @default(uuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId       String?
+  fullName     String
+  phone        String
+  bloodGroup   String
+  email        String
+  registeredAt DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+model ContactMessage {
+  id         String   @id @default(uuid())
+  fullName   String
+  email      String
+  phone      String?
+  subject    String
+  message    String   @db.Text
+  isRead     Boolean  @default(false)
+  isResolved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model NotificationOutbox {
+  id             String       @id @default(uuid())
+  eventType      String
+  recipientEmail String
+  recipientName  String
+  subject        String
+  payload        Json
+  status         OutboxStatus @default(QUEUED)
+  retries        Int          @default(0)
+  idempotencyKey String       @unique
+  lastAttemptAt  DateTime?
+  error          String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@index([status, retries])
+}
+
+model AutomationDeliveryLog {
+  id             String   @id @default(uuid())
+  outboxId       String
+  eventType      String
+  webhookUrl     String
+  requestPayload Json
+  responseStatus Int
+  responseBody   String?  @db.Text
+  deliveredAt    DateTime @default(now())
+  error          String?  @db.Text
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation("ActorAuditLogs", fields: [actorId], references: [id])
+  actorEmail String
+  action     String
+  targetType String
+  targetId   String
+  metadata   String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ApplicationSettings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

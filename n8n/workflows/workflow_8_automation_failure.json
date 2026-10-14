@@ -1,0 +1,31 @@
+{
+  "name": "LifeLink – Workflow 8: Automation Failure Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-automation-failure",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "admin@lifelink.lk",
+        "subject": "=CRITICAL: LifeLink Automation Delivery Failure",
+        "html": "=<h3>Automation Delivery Alert</h3><p>An automated webhook delivery failed after maximum retry attempts.</p><pre>{{ JSON.stringify($json.body, null, 2) }}</pre>"
+      },
+      "name": "Send Alert to Admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Send Alert to Admin", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "LifeLink – Workflow 1: Registration Welcome Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lifelink-welcome-email",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $headers['x-lifelink-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET || 'lifelink-secret-key-jaffna' }}"
+            }
+          ]
+        }
+      },
+      "name": "Validate Webhook Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM || 'no-reply@lifelink.lk' }}",
+        "toEmail": "={{ $json.body.recipientEmail }}",
+        "subject": "={{ $json.body.subject }}",
+        "html": "=<!DOCTYPE html><html><body style='font-family:sans-serif;color:#151515;background:#FAFAFA;padding:24px;'><div style='max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;border:1px solid #eee;'><h2 style='color:#DC0A20;margin-top:0;'>LifeLink Sri Lanka</h2><h3>Welcome, {{ $json.body.recipientName }}!</h3><p>Thank you for registering on LifeLink, Sri Lanka's smart blood donation network. Your account role is <strong>{{ $json.body.payload.role }}</strong>.</p><p style='background:#FFF0F2;padding:16px;border-radius:8px;'>Every drop saves a life. If you registered as a voluntary donor, your profile will be reviewed by our regional coordination team before appearing in public donor search.</p><p style='font-size:12px;color:#777;margin-top:32px;'>LifeLink Sri Lanka &middot; National Blood Transfusion Service Partner Network &middot; Jaffna District</p></div></body></html>"
+      },
+      "name": "Send Welcome Email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [720, 240]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Webhook Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Webhook Secret": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

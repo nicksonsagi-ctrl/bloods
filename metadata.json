@@ -1,0 +1,6 @@
+{
+  "name": "LifeLink - Smart Blood Donation Management System",
+  "description": "Smart Blood Donation Management System for Sri Lanka, connecting verified blood donors, patients, hospitals, and campaigns with role-based dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
