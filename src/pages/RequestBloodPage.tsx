@@ -51,11 +51,8 @@ export const RequestBloodPage: React.FC<RequestBloodPageProps> = ({ onOpenAuth }
           </div>
 
           <button
-            onClick={() => {
-              if (!user) onOpenAuth('login');
-              else setIsModalOpen(true);
-            }}
-            className="px-5 py-2.5 bg-[#DC0A20] hover:bg-[#B80020] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs inline-flex items-center gap-2 shrink-0 self-start sm:self-auto"
+            onClick={() => setIsModalOpen(true)}
+            className="px-5 py-2.5 bg-[#DC0A20] hover:bg-[#B80020] text-white rounded-xl text-xs font-semibold transition-colors shadow-xs inline-flex items-center gap-2 shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Submit Blood Request</span>

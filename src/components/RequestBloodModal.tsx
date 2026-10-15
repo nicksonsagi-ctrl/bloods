@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, AlertCircle, HeartPulse, Hospital, Calendar, Phone, CheckCircle } from 'lucide-react';
+import { X, AlertCircle, HeartPulse, Hospital, Calendar, Phone, CheckCircle, ShieldCheck } from 'lucide-react';
 import { BLOOD_GROUPS, SRI_LANKA_PROVINCES, SRI_LANKA_DISTRICTS, SRI_LANKA_HOSPITALS } from '../data/sriLankaData.js';
 import { useAuth } from '../context/AuthContext.js';
+import { authFetch } from '../services/api.js';
 
 interface RequestBloodModalProps {
   isOpen: boolean;
@@ -46,11 +47,11 @@ export const RequestBloodModal: React.FC<RequestBloodModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/requests', {
+      const res = await authFetch('/api/requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientReference,
+          requesterName: user?.fullName || 'Emergency Patient Relative',
           bloodGroup,
           unitsRequired: Number(unitsRequired),
           hospital,

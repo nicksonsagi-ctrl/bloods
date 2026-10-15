@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Calendar, MapPin, CheckCircle, AlertCircle, Heart } from 'lucide-react';
 import { Campaign } from '../types/index.js';
 import { useAuth } from '../context/AuthContext.js';
+import { authFetch } from '../services/api.js';
 import { BLOOD_GROUPS } from '../data/sriLankaData.js';
 
 interface CampaignRegisterModalProps {
@@ -33,9 +34,8 @@ export const CampaignRegisterModal: React.FC<CampaignRegisterModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`/api/campaigns/${campaign.id}/register`, {
+      const res = await authFetch(`/api/campaigns/${campaign.id}/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName,
           email,

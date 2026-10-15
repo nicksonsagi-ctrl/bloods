@@ -250,6 +250,138 @@ class DatabaseStore {
     };
     this.users.set(adminUser.id, adminUser);
 
+    // Default Verified Donor account
+    const donorPasswordHash = bcrypt.hashSync('donor123', 10);
+    const donorUser: User = {
+      id: 'usr-donor-01',
+      email: 'donor@lifelink.lk',
+      passwordHash: donorPasswordHash,
+      fullName: 'Kandeeban Shanmugam',
+      phone: '+94 77 987 6543',
+      role: 'DONOR',
+      status: 'ACTIVE',
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.users.set(donorUser.id, donorUser);
+
+    const donorProfile1: DonorProfile = {
+      id: 'dp-donor-01',
+      userId: donorUser.id,
+      bloodGroup: 'O+',
+      dob: '1996-08-14',
+      province: 'Northern Province',
+      district: 'Jaffna',
+      city: 'Nallur',
+      lastDonationDate: '2026-06-10',
+      isAvailable: true,
+      contactPreferences: 'CALL_AND_SMS',
+      consentGiven: true,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: 'usr-admin-01'
+    };
+    this.donorProfiles.set(donorUser.id, donorProfile1);
+
+    // Second Verified Donor in Jaffna
+    const donor2: User = {
+      id: 'usr-donor-02',
+      email: 'priya.donor@lifelink.lk',
+      passwordHash: bcrypt.hashSync('donor123', 10),
+      fullName: 'Priya Thurairajah',
+      phone: '+94 71 234 5678',
+      role: 'DONOR',
+      status: 'ACTIVE',
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.users.set(donor2.id, donor2);
+
+    const donorProfile2: DonorProfile = {
+      id: 'dp-donor-02',
+      userId: donor2.id,
+      bloodGroup: 'A+',
+      dob: '1998-03-22',
+      province: 'Northern Province',
+      district: 'Jaffna',
+      city: 'Jaffna Town',
+      lastDonationDate: '2026-05-18',
+      isAvailable: true,
+      contactPreferences: 'CALL_AND_SMS',
+      consentGiven: true,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: 'usr-admin-01'
+    };
+    this.donorProfiles.set(donor2.id, donorProfile2);
+
+    // Default Requester account
+    const requesterPasswordHash = bcrypt.hashSync('requester123', 10);
+    const requesterUser: User = {
+      id: 'usr-req-01',
+      email: 'requester@lifelink.lk',
+      passwordHash: requesterPasswordHash,
+      fullName: 'Dr. S. Sivanesan (Jaffna Teaching Hospital)',
+      phone: '+94 77 456 7890',
+      role: 'REQUESTER',
+      status: 'ACTIVE',
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.users.set(requesterUser.id, requesterUser);
+
+    const requesterProfile: RequesterProfile = {
+      id: 'rp-req-01',
+      userId: requesterUser.id,
+      province: 'Northern Province',
+      district: 'Jaffna',
+      city: 'Jaffna Town',
+      organizationName: 'Teaching Hospital Jaffna – Pediatric Surgical Ward'
+    };
+    this.requesterProfiles.set(requesterUser.id, requesterProfile);
+
+    // Seed active verified blood requests
+    const r1: BloodRequest = {
+      id: 'req-jfn-01',
+      patientReference: 'REF-THJ-2026-88',
+      requesterId: requesterUser.id,
+      requesterName: requesterUser.fullName,
+      contactPhone: '+94 77 456 7890',
+      bloodGroup: 'O+',
+      unitsRequired: 3,
+      hospital: 'Teaching Hospital Jaffna',
+      province: 'Northern Province',
+      district: 'Jaffna',
+      city: 'Jaffna Town',
+      requiredDate: '2026-10-18T10:00:00.000Z',
+      urgency: 'CRITICAL',
+      additionalNotes: 'Urgent requirement for scheduled cardiac surgery at Main Theater.',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    const r2: BloodRequest = {
+      id: 'req-jfn-02',
+      patientReference: 'REF-JGH-2026-14',
+      requesterId: requesterUser.id,
+      requesterName: requesterUser.fullName,
+      contactPhone: '+94 77 456 7890',
+      bloodGroup: 'A+',
+      unitsRequired: 2,
+      hospital: 'Chavakachcheri Base Hospital',
+      province: 'Northern Province',
+      district: 'Jaffna',
+      city: 'Chavakachcheri',
+      requiredDate: '2026-10-20T08:00:00.000Z',
+      urgency: 'URGENT',
+      additionalNotes: 'Post-delivery maternal transfusion support.',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+    this.bloodRequests.set(r1.id, r1);
+    this.bloodRequests.set(r2.id, r2);
+
     // Initial campaigns in Jaffna
     const c1: Campaign = {
       id: 'camp-jaffna-01',

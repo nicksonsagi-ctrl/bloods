@@ -180,11 +180,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
                 </button>
 
                 <button
-                  onClick={() => {
-                    if (!user) onOpenAuth('login');
-                    else setIsRequestModalOpen(true);
-                  }}
-                  className="px-5 py-3 text-sm font-semibold text-neutral-800 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 transition-colors shadow-xs inline-flex items-center gap-2"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="px-5 py-3 text-sm font-semibold text-neutral-800 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 transition-colors shadow-xs inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Droplets className="w-4 h-4 text-[#DC0A20]" />
                   <span>{t.hero.requestEmergencyBlood}</span>
@@ -382,11 +379,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
             </Link>
 
             <button
-              onClick={() => {
-                if (!user) onOpenAuth('login');
-                else setIsRequestModalOpen(true);
-              }}
-              className="p-5 rounded-2xl bg-white border border-neutral-200 shadow-xs hover:shadow-md hover:border-[#DC0A20]/30 transition-all text-left group"
+              onClick={() => setIsRequestModalOpen(true)}
+              className="p-5 rounded-2xl bg-white border border-neutral-200 shadow-xs hover:shadow-md hover:border-[#DC0A20]/30 transition-all text-left group cursor-pointer"
             >
               <div className="w-10 h-10 rounded-xl bg-[#FFF0F2] text-[#DC0A20] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                 <Droplets className="w-5 h-5" />
@@ -483,11 +477,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
                 All patient requests have been fulfilled or are undergoing hospital administrative verification.
               </p>
               <button
-                onClick={() => {
-                  if (!user) onOpenAuth('login');
-                  else setIsRequestModalOpen(true);
-                }}
-                className="mt-4 px-4 py-2 bg-[#DC0A20] text-white text-xs font-semibold rounded-lg hover:bg-[#B80020]"
+                onClick={() => setIsRequestModalOpen(true)}
+                className="mt-4 px-4 py-2 bg-[#DC0A20] text-white text-xs font-semibold rounded-lg hover:bg-[#B80020] cursor-pointer"
               >
                 Submit Blood Request
               </button>

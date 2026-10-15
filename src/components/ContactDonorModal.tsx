@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Send, Shield, AlertCircle, CheckCircle, Heart } from 'lucide-react';
+import { X, Send, Shield, AlertCircle, CheckCircle, Heart, LogIn } from 'lucide-react';
 import { DonorSearchResult } from '../types/index.js';
 import { useAuth } from '../context/AuthContext.js';
+import { authFetch } from '../services/api.js';
 
 interface ContactDonorModalProps {
   donor: DonorSearchResult | null;
@@ -39,9 +40,8 @@ export const ContactDonorModal: React.FC<ContactDonorModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/contact-requests', {
+      const res = await authFetch('/api/contact-requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           donorId: donor.id,
           message
