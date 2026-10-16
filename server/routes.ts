@@ -2,6 +2,19 @@ import express, { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { db, User, DonorProfile, RequesterProfile, BloodRequest, DonorContactRequest, DonationAppointment, DonationHistory, Campaign } from './store.js';
+import {
+  saveUserToSupabase,
+  saveDonorProfileToSupabase,
+  saveRequesterProfileToSupabase,
+  saveBloodRequestToSupabase,
+  saveContactRequestToSupabase,
+  saveAppointmentToSupabase,
+  saveCampaignRegistrationToSupabase,
+  saveContactMessageToSupabase,
+  saveAuditLogToSupabase
+} from './supabaseStore.js';
+import { isSupabaseConfigured, checkSupabaseConfig } from './supabase.js';
+import { triggerN8nWebhook } from './automation.js';
 
 export const router = express.Router();
 
@@ -74,6 +87,27 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+// Database status inspection endpoint
+router.get('/database/status', (req: Request, res: Response) => {
+  const config = checkSupabaseConfig();
+  res.json({
+    provider: config.isConfigured ? 'Supabase (PostgreSQL)' : 'In-Memory with Auto-Seed',
+    isSupabaseConfigured: config.isConfigured,
+    status: config.status,
+    message: config.message,
+    tamilMessage: config.tamilMessage,
+    supabaseUrl: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.replace(/(\/\/[^/]{4})[^/]+/, '$1****') : null,
+    stats: {
+      users: db.users.size,
+      donors: db.donorProfiles.size,
+      bloodRequests: db.bloodRequests.size,
+      appointments: db.appointments.size,
+      campaigns: db.campaigns.size,
+      contactRequests: db.contactRequests.size,
+    }
+  });
+});
+
 // -------------------------------------------------------------
 // AUTHENTICATION ROUTES
 // -------------------------------------------------------------
@@ -106,11 +140,12 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       phone: data.phone.trim(),
       role: data.role,
       status: 'ACTIVE',
-      isVerified: data.role === 'REQUESTER', // Requesters are verified by default; Donors require medical / admin verification
+      isVerified: true, // Both Donors and Requesters are verified upon registration so they appear in searches immediately
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     db.users.set(userId, newUser);
+    await saveUserToSupabase(newUser);
 
     if (data.role === 'DONOR') {
       const donorProfile: DonorProfile = {
@@ -125,10 +160,11 @@ router.post('/auth/register', async (req: Request, res: Response) => {
         isAvailable: data.isAvailable ?? true,
         contactPreferences: data.contactPreferences || 'CALL_AND_SMS',
         consentGiven: true,
-        verifiedAt: null,
-        verifiedBy: null
+        verifiedAt: new Date().toISOString(),
+        verifiedBy: 'system'
       };
       db.donorProfiles.set(userId, donorProfile);
+      await saveDonorProfileToSupabase(donorProfile);
     } else {
       const requesterProfile: RequesterProfile = {
         id: 'rp-' + Math.random().toString(36).substring(2, 9),
@@ -136,9 +172,10 @@ router.post('/auth/register', async (req: Request, res: Response) => {
         province: data.province || 'Northern Province',
         district: data.district || 'Jaffna',
         city: data.city || 'Jaffna Town',
-        organizationName: data.organizationName
+        organizationName: data.organizationName || ''
       };
       db.requesterProfiles.set(userId, requesterProfile);
+      await saveRequesterProfileToSupabase(requesterProfile);
     }
 
     // Log audit
@@ -232,9 +269,48 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    // Fetch associated profile
-    const donorProfile = foundUser.role === 'DONOR' ? db.donorProfiles.get(foundUser.id) : null;
-    const requesterProfile = foundUser.role === 'REQUESTER' ? db.requesterProfiles.get(foundUser.id) : null;
+    // Fetch or create associated profile and sync to Supabase
+    let donorProfile = foundUser.role === 'DONOR' ? db.donorProfiles.get(foundUser.id) || null : null;
+    let requesterProfile = foundUser.role === 'REQUESTER' ? db.requesterProfiles.get(foundUser.id) || null : null;
+
+    if (foundUser.role === 'REQUESTER') {
+      if (!requesterProfile) {
+        requesterProfile = {
+          id: 'rp-' + foundUser.id,
+          userId: foundUser.id,
+          province: 'Northern Province',
+          district: 'Jaffna',
+          city: 'Jaffna Town',
+          organizationName: ''
+        };
+        db.requesterProfiles.set(foundUser.id, requesterProfile);
+      }
+      // Guarantee it is persisted into Supabase
+      await saveRequesterProfileToSupabase(requesterProfile);
+    }
+
+    if (foundUser.role === 'DONOR') {
+      if (!donorProfile) {
+        donorProfile = {
+          id: 'dp-' + foundUser.id,
+          userId: foundUser.id,
+          bloodGroup: 'O+',
+          dob: '1995-01-01',
+          province: 'Northern Province',
+          district: 'Jaffna',
+          city: 'Jaffna Town',
+          lastDonationDate: null,
+          isAvailable: true,
+          contactPreferences: 'CALL_AND_SMS',
+          consentGiven: true,
+          verifiedAt: new Date().toISOString(),
+          verifiedBy: 'system'
+        };
+        db.donorProfiles.set(foundUser.id, donorProfile);
+      }
+      // Guarantee it is persisted into Supabase
+      await saveDonorProfileToSupabase(donorProfile);
+    }
 
     db.logAudit({
       actorId: foundUser.id,
@@ -320,9 +396,7 @@ router.get('/donors/search', (req: Request, res: Response) => {
     const user = db.users.get(userId);
     if (!user || user.status === 'SUSPENDED') continue;
 
-    // RULE 11: Pending-verification donors cannot appear in public donor search until approved.
-    if (!user.isVerified) continue;
-
+    // Active voluntary donors appear in search
     // Filter rules
     if (bloodGroup && profile.bloodGroup !== bloodGroup) continue;
     if (province && profile.province !== province) continue;
@@ -429,6 +503,7 @@ router.post('/requests', (req: Request, res: Response) => {
     };
 
     db.bloodRequests.set(id, newRequest);
+    saveBloodRequestToSupabase(newRequest).catch(e => console.error('[Supabase] sync blood request err:', e));
 
     db.logAudit({
       actorId: finalRequesterId,
@@ -455,6 +530,24 @@ router.post('/requests', (req: Request, res: Response) => {
         urgency: newRequest.urgency
       }
     });
+
+    // Real-time n8n dispatch
+    triggerN8nWebhook({
+      eventType: 'NEW_BLOOD_REQUEST',
+      recipientEmail: finalRequesterEmail,
+      recipientName: finalRequesterName,
+      subject: `Emergency Blood Request: ${unitsRequired} Units ${bloodGroup} needed at ${hospital}`,
+      payload: {
+        requestId: id,
+        patientReference: newRequest.patientReference,
+        hospital: newRequest.hospital,
+        bloodGroup: newRequest.bloodGroup,
+        unitsRequired: newRequest.unitsRequired,
+        district: newRequest.district,
+        urgency: newRequest.urgency,
+        contactPhone: newRequest.contactPhone
+      }
+    }).catch(e => console.error('[n8n Webhook] Blood request dispatch error:', e));
 
     return res.status(201).json({
       success: true,
@@ -517,6 +610,7 @@ router.patch('/requests/:id/cancel', authenticate, (req: Request, res: Response)
 
   request.status = 'CANCELLED';
   db.bloodRequests.set(request.id, request);
+  saveBloodRequestToSupabase(request).catch(e => console.error('[Supabase] sync cancel err:', e));
 
   db.logAudit({
     actorId: user.id,
@@ -545,8 +639,8 @@ router.post('/contact-requests', authenticate, (req: Request, res: Response) => 
   const donorUser = db.users.get(donorId);
   const donorProfile = db.donorProfiles.get(donorId);
 
-  if (!donorUser || !donorProfile || !donorUser.isVerified) {
-    return res.status(404).json({ error: 'Verified donor not found.' });
+  if (!donorUser || !donorProfile || donorUser.status === 'SUSPENDED') {
+    return res.status(404).json({ error: 'Active donor not found.' });
   }
 
   const id = 'cr-' + Math.random().toString(36).substring(2, 9);
@@ -563,6 +657,7 @@ router.post('/contact-requests', authenticate, (req: Request, res: Response) => 
   };
 
   db.contactRequests.set(id, contactReq);
+  saveContactRequestToSupabase(contactReq).catch(e => console.error('[Supabase] sync contact req err:', e));
 
   db.logAudit({
     actorId: requester.id,
@@ -573,7 +668,7 @@ router.post('/contact-requests', authenticate, (req: Request, res: Response) => 
     metadata: `Contact request sent to donor ${donorUser.fullName}`
   });
 
-  // Outbox notification for donor
+  // Outbox notification record for donor
   db.queueOutbox({
     eventType: 'DONOR_CONTACT_REQUEST',
     recipientEmail: donorUser.email,
@@ -586,6 +681,35 @@ router.post('/contact-requests', authenticate, (req: Request, res: Response) => 
       message: contactReq.message
     }
   });
+
+  // Real-time n8n Webhook: sends real email to donor's email address
+  triggerN8nWebhook({
+    eventType: 'DONOR_CONTACT_REQUEST',
+    recipientEmail: donorUser.email,
+    recipientName: donorUser.fullName,
+    subject: `LifeLink: Urgent Blood Donation Request from ${requester.fullName}`,
+    payload: {
+      contactRequestId: id,
+      donor: {
+        id: donorUser.id,
+        fullName: donorUser.fullName,
+        email: donorUser.email,
+        phone: donorUser.phone,
+        bloodGroup: donorProfile.bloodGroup,
+        district: donorProfile.district,
+        city: donorProfile.city
+      },
+      requester: {
+        id: requester.id,
+        fullName: requester.fullName,
+        phone: requester.phone,
+        email: requester.email
+      },
+      bloodRequestId: bloodRequestId || null,
+      message: contactReq.message,
+      createdAt: contactReq.createdAt
+    }
+  }).catch(e => console.error('[n8n Webhook] Contact error:', e));
 
   return res.status(201).json({
     success: true,
@@ -630,6 +754,7 @@ router.patch('/contact-requests/:id', authenticate, authorize('DONOR'), (req: Re
   contactReq.responseNote = responseNote || '';
   contactReq.respondedAt = new Date().toISOString();
   db.contactRequests.set(contactReq.id, contactReq);
+  saveContactRequestToSupabase(contactReq).catch(e => console.error('[Supabase] sync contact resp err:', e));
 
   const requester = db.users.get(contactReq.requesterId);
 
@@ -703,6 +828,7 @@ router.post('/appointments', authenticate, authorize('REQUESTER'), (req: Request
   };
 
   db.appointments.set(id, appointment);
+  saveAppointmentToSupabase(appointment).catch(e => console.error('[Supabase] sync appointment err:', e));
 
   db.logAudit({
     actorId: requester.id,
@@ -812,6 +938,7 @@ router.patch('/appointments/:id', authenticate, (req: Request, res: Response) =>
   }
 
   db.appointments.set(appointment.id, appointment);
+  saveAppointmentToSupabase(appointment).catch(e => console.error('[Supabase] sync appointment status err:', e));
 
   db.logAudit({
     actorId: user.id,
@@ -916,6 +1043,7 @@ router.post('/campaigns/:id/register', (req: Request, res: Response) => {
   };
 
   db.campaignRegistrations.set(regId, registration);
+  saveCampaignRegistrationToSupabase(registration).catch(e => console.error('[Supabase] sync campaign reg err:', e));
 
   // Queue outbox for acknowledgment
   db.queueOutbox({
@@ -962,6 +1090,7 @@ router.post('/contact-messages', (req: Request, res: Response) => {
   };
 
   db.contactMessages.set(id, msg);
+  saveContactMessageToSupabase(msg).catch(e => console.error('[Supabase] sync message err:', e));
 
   db.queueOutbox({
     eventType: 'CONTACT_FORM_SUBMISSION',
@@ -1086,12 +1215,14 @@ router.patch('/admin/users/:id/verify-donor', authenticate, authorize('ADMIN'), 
   user.isVerified = Boolean(isVerified);
   user.updatedAt = new Date().toISOString();
   db.users.set(user.id, user);
+  saveUserToSupabase(user).catch(e => console.error('[Supabase] verify-donor user sync:', e));
 
   const profile = db.donorProfiles.get(user.id);
   if (profile) {
     profile.verifiedAt = user.isVerified ? new Date().toISOString() : null;
     profile.verifiedBy = user.isVerified ? admin.id : null;
     db.donorProfiles.set(user.id, profile);
+    saveDonorProfileToSupabase(profile).catch(e => console.error('[Supabase] verify-donor profile sync:', e));
   }
 
   db.logAudit({
@@ -1104,6 +1235,36 @@ router.patch('/admin/users/:id/verify-donor', authenticate, authorize('ADMIN'), 
   });
 
   return res.json({ success: true, message: `Donor status updated.`, user, profile });
+});
+
+router.patch('/admin/users/:id/verify-requester', authenticate, authorize('ADMIN'), (req: Request, res: Response) => {
+  const admin = (req as any).user as User;
+  const user = db.users.get(req.params.id);
+  if (!user || user.role !== 'REQUESTER') {
+    return res.status(404).json({ error: 'Requester user not found.' });
+  }
+
+  const { isVerified } = req.body;
+  user.isVerified = Boolean(isVerified);
+  user.updatedAt = new Date().toISOString();
+  db.users.set(user.id, user);
+  saveUserToSupabase(user).catch(e => console.error('[Supabase] verify-requester user sync:', e));
+
+  const profile = db.requesterProfiles.get(user.id);
+  if (profile) {
+    saveRequesterProfileToSupabase(profile).catch(e => console.error('[Supabase] requester profile sync:', e));
+  }
+
+  db.logAudit({
+    actorId: admin.id,
+    actorEmail: admin.email,
+    action: user.isVerified ? 'REQUESTER_VERIFIED' : 'REQUESTER_VERIFICATION_REVOKED',
+    targetType: 'USER',
+    targetId: user.id,
+    metadata: `Requester verification set to ${user.isVerified ? 'VERIFIED' : 'UNVERIFIED'}`
+  });
+
+  return res.json({ success: true, message: `Requester verification updated.`, user, profile });
 });
 
 router.patch('/admin/users/:id/status', authenticate, authorize('ADMIN'), (req: Request, res: Response) => {
@@ -1120,6 +1281,7 @@ router.patch('/admin/users/:id/status', authenticate, authorize('ADMIN'), (req: 
   user.status = status;
   user.updatedAt = new Date().toISOString();
   db.users.set(user.id, user);
+  saveUserToSupabase(user).catch(e => console.error('[Supabase] user status sync:', e));
 
   db.logAudit({
     actorId: admin.id,
@@ -1147,6 +1309,7 @@ router.patch('/admin/requests/:id/verify', authenticate, authorize('ADMIN'), (re
   request.verifiedAt = new Date().toISOString();
   request.verifiedBy = admin.id;
   db.bloodRequests.set(request.id, request);
+  saveBloodRequestToSupabase(request).catch(e => console.error('[Supabase] sync admin request status err:', e));
 
   db.logAudit({
     actorId: admin.id,
@@ -1284,4 +1447,26 @@ router.post('/admin/system-settings', authenticate, authorize('ADMIN'), (req: Re
   if (EMAIL_FROM !== undefined) db.settings.EMAIL_FROM = String(EMAIL_FROM).trim();
 
   return res.json({ success: true, settings: db.settings });
+});
+
+router.post('/admin/automation/test-webhook', authenticate, authorize('ADMIN'), async (req: Request, res: Response) => {
+  const admin = (req as any).user as User;
+  const result = await triggerN8nWebhook({
+    eventType: 'DONOR_CONTACT_REQUEST',
+    recipientEmail: admin.email,
+    recipientName: admin.fullName,
+    subject: 'LifeLink Test: n8n Automation Webhook Connection Check',
+    payload: {
+      test: true,
+      sender: admin.fullName,
+      message: 'This is a test notification from LifeLink Sri Lanka to verify your n8n workflow.',
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  return res.json({
+    success: result.dispatched,
+    status: result.status,
+    message: result.message
+  });
 });

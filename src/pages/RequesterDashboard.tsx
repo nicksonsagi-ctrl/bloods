@@ -41,6 +41,7 @@ export const RequesterDashboard: React.FC = () => {
   const [searchDistrict, setSearchDistrict] = useState('Jaffna');
   const [searchDonors, setSearchDonors] = useState<DonorSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Modals
   const [isBloodModalOpen, setIsBloodModalOpen] = useState(false);
@@ -75,6 +76,7 @@ export const RequesterDashboard: React.FC = () => {
 
   const handleSearchDonors = async () => {
     setIsSearching(true);
+    setHasSearched(true);
     try {
       const params = new URLSearchParams({
         bloodGroup: searchBloodGroup,
@@ -348,28 +350,59 @@ export const RequesterDashboard: React.FC = () => {
               </button>
             </div>
 
-            {searchDonors.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {searchDonors.map((d) => (
-                  <div key={d.id} className="p-5 bg-white rounded-2xl border border-neutral-200 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <span className="font-bold text-neutral-900 text-sm">{d.displayName}</span>
-                        <span className="font-bold text-[#DC0A20] bg-[#FFF0F2] px-2 py-0.5 rounded text-xs">
-                          {d.bloodGroup}
-                        </span>
-                      </div>
-                      <p className="text-xs text-neutral-500 mt-1">{d.city}, {d.district}</p>
-                    </div>
+            {hasSearched && searchDonors.length === 0 && !isSearching && (
+              <div className="p-8 bg-white rounded-2xl border border-neutral-200 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-red-50 text-[#DC0A20] flex items-center justify-center mx-auto">
+                  <Search className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-neutral-800">
+                  No registered donors found for {searchBloodGroup} in {searchDistrict}
+                </h3>
+                <p className="text-xs text-neutral-500 max-w-md mx-auto">
+                  Try selecting another district or submit an urgent blood request to notify all emergency medical networks.
+                </p>
+                <button
+                  onClick={() => setIsBloodModalOpen(true)}
+                  className="px-4 py-2 bg-[#DC0A20] hover:bg-[#B80020] text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Post Urgent Blood Request
+                </button>
+              </div>
+            )}
 
-                    <button
-                      onClick={() => setSelectedDonorForContact(d)}
-                      className="mt-4 w-full py-2 bg-[#DC0A20] hover:bg-[#B80020] text-white text-xs font-semibold rounded-lg"
-                    >
-                      Send Contact Request
-                    </button>
-                  </div>
-                ))}
+            {searchDonors.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-neutral-600">
+                  <span className="font-semibold">Found {searchDonors.length} matching donor(s)</span>
+                  <span className="text-[11px] text-neutral-400">Available voluntary donors</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {searchDonors.map((d) => (
+                    <div key={d.id} className="p-5 bg-white rounded-2xl border border-neutral-200 flex flex-col justify-between shadow-2xs hover:border-[#DC0A20]/40 transition-all">
+                      <div>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="font-bold text-neutral-900 text-sm block">{d.displayName}</span>
+                            <span className="inline-block mt-0.5 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
+                              {d.isVerified ? 'Verified Donor' : 'Registered Donor'}
+                            </span>
+                          </div>
+                          <span className="font-bold text-[#DC0A20] bg-[#FFF0F2] px-2 py-0.5 rounded text-xs font-mono">
+                            {d.bloodGroup}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-500 mt-2">{d.city}, {d.district}</p>
+                      </div>
+
+                      <button
+                        onClick={() => setSelectedDonorForContact(d)}
+                        className="mt-4 w-full py-2 bg-[#DC0A20] hover:bg-[#B80020] text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                      >
+                        Send Contact Request
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

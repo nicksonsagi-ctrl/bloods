@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -5,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { router as apiRouter } from './server/routes.js';
+import { initSupabaseData } from './server/supabaseStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +42,10 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[LifeLink] Express server running on http://0.0.0.0:${PORT}`);
+    // Sync with Supabase asynchronously in background without blocking server startup
+    initSupabaseData().catch((err) => {
+      console.error('[Supabase] Background sync warning:', err.message);
+    });
   });
 }
 

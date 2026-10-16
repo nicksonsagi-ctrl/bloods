@@ -219,55 +219,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              {/* 1-Click Role Login for Quick Testing */}
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-neutral-800">Quick Demo Accounts (1-Click Login):</span>
-                  <span className="text-[10px] text-neutral-500">Sri Lanka (Jaffna)</span>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginEmail('admin@lifelink.lk');
-                      setLoginPassword('admin123');
-                    }}
-                    className="p-2 text-left bg-white border border-neutral-200 hover:border-[#DC0A20] rounded-lg transition-colors cursor-pointer group"
-                  >
-                    <span className="block font-bold text-neutral-900 text-[11px] group-hover:text-[#DC0A20]">Admin</span>
-                    <span className="block text-[10px] text-neutral-500 truncate">admin@lifelink.lk</span>
-                    <span className="block text-[10px] font-mono text-neutral-400">admin123</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginEmail('donor@lifelink.lk');
-                      setLoginPassword('donor123');
-                    }}
-                    className="p-2 text-left bg-white border border-neutral-200 hover:border-[#DC0A20] rounded-lg transition-colors cursor-pointer group"
-                  >
-                    <span className="block font-bold text-neutral-900 text-[11px] group-hover:text-[#DC0A20]">Donor (O+)</span>
-                    <span className="block text-[10px] text-neutral-500 truncate">donor@lifelink.lk</span>
-                    <span className="block text-[10px] font-mono text-neutral-400">donor123</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginEmail('requester@lifelink.lk');
-                      setLoginPassword('requester123');
-                    }}
-                    className="p-2 text-left bg-white border border-neutral-200 hover:border-[#DC0A20] rounded-lg transition-colors cursor-pointer group"
-                  >
-                    <span className="block font-bold text-neutral-900 text-[11px] group-hover:text-[#DC0A20]">Requester</span>
-                    <span className="block text-[10px] text-neutral-500 truncate">requester@lifelink.lk</span>
-                    <span className="block text-[10px] font-mono text-neutral-400">requester123</span>
-                  </button>
-                </div>
-              </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}
